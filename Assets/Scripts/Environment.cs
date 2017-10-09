@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-
+//Added comment to test if github is set properly for project work
 public class Environment : MonoBehaviour
 {
     // game rules
