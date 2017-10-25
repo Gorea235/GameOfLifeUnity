@@ -3,19 +3,20 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-//Added comment to test if github is set properly for project work
+
 public class Environment : MonoBehaviour
 {
     // game rules
     public static readonly int[] newLife = { 3 };
     public static readonly int[] keepAlive = { 2, 3 };
-    public static bool loopSides = true;
     public const float secsPerTick = 0.5f;
 
+    // unity-linked fields
     public Texture2D texAlive;
     public Texture2D texDead;
     public GameObject cellBase;
 
+    // game variabled
     const int _gridWidth = 50;
     const int _gridHeight = 50;
     const float _cellSize = 1;
@@ -24,6 +25,18 @@ public class Environment : MonoBehaviour
     bool _hasRun = false;
     float _timeSinceLastTick = secsPerTick;
     bool _limitTicks = true;
+    bool _loopSides = true;
+
+    // control variables
+    Rect _startStopButton;
+    Rect _resetButton;
+    Rect _limitTicksToggleButton;
+    Rect _loopSidesButton;
+    Vector3 _mouseStartPan;
+    Vector3 _cameraStartPos;
+    Vector3 _minMouseMovePan;
+    bool _mouseIsPanning = false;
+    float _mousePanScale = -20.0f;
 
     struct Point2
     {
@@ -130,13 +143,13 @@ public class Environment : MonoBehaviour
         {
             if (c < 0)
             {
-                if (loopSides)
+                if (_parent._loopSides)
                     return max - 1;
                 return null;
             }
             if (c >= max)
             {
-                if (loopSides)
+                if (_parent._loopSides)
                     return 0;
                 return null;
             }
@@ -191,6 +204,25 @@ public class Environment : MonoBehaviour
     void Awake()
     {
         _grid = new CellObj[_gridWidth, _gridHeight];
+
+        _startStopButton = new Rect(10,
+                                    10,
+                                    Screen.width * 0.1f,
+                                    Screen.height * 0.08f);
+        _resetButton = new Rect(10,
+                                (Screen.height * 0.08f) + 20,
+                                Screen.width * 0.1f,
+                                Screen.height * 0.08f);
+        _limitTicksToggleButton = new Rect((Screen.width * 0.1f) + 20,
+                                           10,
+                                           Screen.width * 0.2f,
+                                           Screen.height * 0.08f);
+        _loopSidesButton = new Rect((Screen.width * 0.1f) + 20,
+                                           (Screen.height * 0.08f) + 20,
+                                           Screen.width * 0.2f,
+                                           Screen.height * 0.08f); 
+        float minMoveDistance = (Screen.width / Screen.height);
+        _minMouseMovePan = new Vector3(minMoveDistance, minMoveDistance);
     }
 
     // Use this for initialization
@@ -218,21 +250,44 @@ public class Environment : MonoBehaviour
                 _timeSinceLastTick = 0;
             }
         }
-        else if (!_hasRun)
+
+        // mouse handling
+        if (Input.GetMouseButtonDown(0))
         {
-            if (Input.GetMouseButtonDown(0))
+            _mouseStartPan = Input.mousePosition;
+            _cameraStartPos = Camera.main.transform.position;
+        }
+
+        if (Input.GetMouseButton(0))
+        {
+            if (!_mouseIsPanning && (Input.mousePosition - _mouseStartPan).sqrMagnitude > _minMouseMovePan.sqrMagnitude)
+                _mouseIsPanning = true;
+            if (_mouseIsPanning) // we are now padding the camera
             {
-                Point2 gridC = MouseGridHover();
-                Debug.LogFormat("mouse clicked on {0},{1}", gridC.x, gridC.y);
-                if (gridC.x >= 0 && gridC.x < _gridWidth && gridC.y >= 0 && gridC.y < _gridHeight)
-                    _grid[gridC.x, gridC.y].BuildSwitch();
+                Vector3 move = Camera.main.ScreenToViewportPoint(Input.mousePosition - _mouseStartPan);
+                //Vector3 move = Input.mousePosition - _mouseStartPan;
+                move = new Vector3(move.x * _mousePanScale, //* (Screen.width / Screen.height),
+                                   move.y * _mousePanScale); //* (Screen.height / Screen.width));
+                Camera.main.transform.position = _cameraStartPos + move;
             }
         }
-    }
 
-    readonly Rect _startStopButton = new Rect(10, 10, 100, 30);
-    readonly Rect _resetButton = new Rect(10, 50, 100, 30);
-    readonly Rect _limitTicksToggleButton = new Rect(120, 10, 100, 30);
+        if (Input.GetMouseButtonUp(0))
+        {
+            if (!_mouseIsPanning)
+            {
+                if (!_hasRun)
+                {
+                    Point2 gridC = MouseGridHover();
+                    Debug.LogFormat("mouse clicked on {0},{1}", gridC.x, gridC.y);
+                    if (gridC.x >= 0 && gridC.x < _gridWidth && gridC.y >= 0 && gridC.y < _gridHeight)
+                        _grid[gridC.x, gridC.y].BuildSwitch();
+                }
+            }
+            else
+                _mouseIsPanning = false;
+        }
+    }
 
     void OnGUI()
     {
@@ -272,6 +327,17 @@ public class Environment : MonoBehaviour
         {
             if (GUI.Button(_limitTicksToggleButton, "Enable Limit"))
                 _limitTicks = true;
+        }
+
+        if (_loopSides)
+        {
+            if (GUI.Button(_loopSidesButton, "Disable Looping Sides"))
+                _loopSides = false;
+        }
+        else
+        {
+            if (GUI.Button(_loopSidesButton, "Enable Looping Sides"))
+                _loopSides = true;
         }
         //GUI.DrawTexture(new Rect(10, 10, 11, 11), texDead);
     }
